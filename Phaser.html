@@ -1,0 +1,220 @@
+<!doctype html> 
+<html lang="en"> 
+ 
+<head> 
+    <meta charset="UTF-8" />
+    <title> Game </title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+// adiciona as configurações da página como largura e altura
+var config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 300 }, // gravidade na vertical
+            debug: false
+        }
+    },
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+};
+
+// tipo de phaser que irei utilizar
+var game = new Phaser.Game(config);
+
+// variáveis 
+var platforms;
+var stars;
+var bombs;
+var player;
+var cursors;
+var score = 0;
+var scoreText;
+
+//carrega as imagens no código
+function preload ()
+{
+    this.load.image('sky', 'assets/sky.png');
+    this.load.image('ground', 'assets/platform.png');
+    this.load.image('star', 'assets/star.png');
+    this.load.image('bomb', 'assets/bomb.png');
+    this.load.spritesheet('dude', 'assets/dude.png', 
+   // altura e largura da spritesheet em pixels
+    {frameWidth: 32, frameHeight: 48}) ;
+}
+
+// adiciona e mostra as imagens carregadas na tela
+function create ()
+{
+    // adiciona e dimensiona o céu
+    this.add.image(400, 300, 'sky');
+    // adiciona plataformas como imagem estática
+    platforms = this.physics.add.staticGroup();
+    // coloca as dimensões e escala da plataforma 
+    platforms.create(400, 568, 'ground').setScale(2).refreshBody(); 
+    // adiciona em lugares específicos as plataformas
+    platforms.create(600, 400 ,'ground');
+    platforms.create(50, 250,'ground');
+    platforms.create(750, 220 ,'ground');
+
+    player = this.physics.add.sprite(100, 450, 'dude');
+
+    player.setBounce(0.2);
+    player.setCollideWorldBounds(true);
+    
+    this.anims.create( 
+        {
+            key: 'left',
+            // onde começa e onde termina o sprite para se movimentar para a esquerda
+            frames: this.anims.generateFrameNumbers('dude', {start: 0, end: 3 }),
+             // velocidade da passagem dos frames por segundo
+            frameRate: 10,
+            repeat: -1 // repete infinitamente
+        }
+     );
+
+this.anims.create(
+    {
+        key: 'turn',
+        frames: [ { key: 'dude', frame: 4 } ],
+        // velocidade da passagem dos frames por segundo
+        frameRate: 20
+    }
+);
+
+this.anims.create(
+    {
+        key: 'right',
+         // onde começa e onde termina o sprite para se movimentar para a direita
+        frames: this.anims.generateFrameNumbers('dude', { start: 5, end: 8 }),
+         // velocidade da passagem dos frames por segundo
+        frameRate: 10,
+        repeat: -1 // repetir infinitamente
+    }
+);
+
+// plataforma e boneco colidem
+this.physics.add.collider(player, platforms);
+
+// cria a função dos cursores
+cursors = this.input.keyboard.createCursorKeys();
+
+stars = this.physics.add.group(
+    {
+        key: 'star',
+        repeat: 11, // cria 12 crianças 
+        setXY: { x: 12, y: 0, stepX: 70 } // coloca a posição das crianças criadas 
+    }
+);
+
+stars.children.iterate(function (child) {
+
+    child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+
+
+
+}
+);
+
+ // adiciona collider entre estrelas e plataformas
+this.physics.add.collider(stars, platforms);
+
+// identifica overlap das estrelas e jogador 
+this.physics.add.overlap(player, stars, collectStar, null, this);
+
+// adiciona texto do placar
+scoreText = this.add.text(16, 16, 'score: 0', { fontSize: '32px', fill: '#000'});
+
+// adiciona bombas
+bombs = this.physics.add.group();
+// adiciona colisão entre bombas e plataforma
+this.physics.add.collider(bombs, platforms);
+//
+this.physics.add.collider(player, bombs, hitBomb, null, this);
+
+}
+
+// função coletar estrelas
+function collectStar (player, star)
+{
+    //tira estrelas coletadas
+    star.disableBody(true, true);
+
+    // adiciona 10 pontos no placar
+    score += 10;
+
+    // adiciona placar na tela
+    scoreText.setText('Score:' + score);
+
+    //
+    if (stars.countActive(true) === 0)
+    {
+        stars.children.iterate(function (child) {
+            child.enableBody(true, child.x, 0, true, true);
+        });
+
+        var x = (player.x < 400) ? Phaser.Math.Between(400, 800) :
+Phaser.Math.Between(0, 400);
+
+        var bomb = bombs.create(x, 16, 'bomb');
+        bomb.setBounce(1);
+        bomb.setCollideWorldBounds(true);
+        bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+    }
+}
+
+function hitBomb (player, bomb)
+{
+    this.physics.pause();
+    player.setTint(0xff0000);
+    player.anims.play('turn');
+    gameOver = true
+}
+
+function update ()
+{
+    //adiciona a função de cada cursor e o sprite do personagem para cada ação
+    if (cursors.left.isDown)
+    {
+        player.setVelocityX(-160);
+
+        player.anims.play('left', true);
+    }
+    else if (cursors.right.isDown)
+    {
+        player.setVelocityX(160);
+
+        player.anims.play('right', true);   
+    }
+    else
+    {
+        player.setVelocityX(0)
+
+        player.anims.play('turn');
+    }
+    if (cursors.up.isDown && player.body.touching.down)
+    {
+        player.setVelocityY(-330);
+    }
+}
+
+
+</script>
+
+</body>
+</html>
